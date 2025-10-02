@@ -40,6 +40,52 @@ jobs:
     - name: Build Docker image
       run: make build UBUNTU_VERSION=${{ matrix.ubuntu_version }}
 
+    - name: Test Docker image - Run TensorFlow VTK test
+      run: |
+        echo "=== Running TensorFlow VTK test container (Ubuntu ${{ matrix.ubuntu_version }}) ==="
+        echo "Container will run: uv sync && uv run tf_vtk.py"
+        echo ""
+
+        # Run the container and capture all output
+        set +e  # Don't exit on error so we can capture logs
+        docker run --name test-container-${{ matrix.ubuntu_version }} \
+          --rm \
+          test-tf-vtk:${{ matrix.ubuntu_version }} 2>&1 | tee container_output_${{ matrix.ubuntu_version }}.log
+
+        CONTAINER_EXIT_CODE=$?
+        echo ""
+        echo "=== Container Exit Code: $CONTAINER_EXIT_CODE ==="
+        echo ""
+
+        # Display the captured logs
+        echo "=== Full Container Output ==="
+        cat container_output_${{ matrix.ubuntu_version }}.log
+        echo ""
+
+        # Check for specific issues
+        echo "=== Analyzing Container Output ==="
+        if grep -i "segmentation fault\|segfault\|core dumped" container_output_${{ matrix.ubuntu_version }}.log; then
+          echo "⚠️  SEGMENTATION FAULT!"
+        fi
+
+        if grep -i "error\|exception\|failed" container_output_${{ matrix.ubuntu_version }}.log; then
+          echo "⚠️  ERRORS DETECTED in container output"
+        fi
+
+        if [ $CONTAINER_EXIT_CODE -eq 0 ]; then
+          echo "✅ Container completed successfully"
+        else
+          echo "❌ Container failed with exit code: $CONTAINER_EXIT_CODE"
+        fi
+
+    - name: Upload container logs as artifact
+      uses: actions/upload-artifact@v4
+      if: always()  # Upload logs even if the test failed
+      with:
+        name: container-logs-ubuntu-${{ matrix.ubuntu_version }}
+        path: container_output_${{ matrix.ubuntu_version }}.log
+        retention-days: 90
+
     - name: Push Docker image
       if: github.event_name != 'pull_request'
       run: make push UBUNTU_VERSION=${{ matrix.ubuntu_version }}
