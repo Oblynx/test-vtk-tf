@@ -19,7 +19,6 @@ jobs:
       packages: write
 
     strategy:
-      fail-fast: false
       matrix:
         ubuntu_version: ["22.04", "24.04", latest]
 
@@ -40,6 +39,50 @@ jobs:
 
     - name: Build Docker image
       run: make build UBUNTU_VERSION=${{ matrix.ubuntu_version }}
+
+    - name: Push Docker image
+      if: github.event_name != 'pull_request'
+      run: |
+        # Use GitHub Actions environment for proper registry path
+        IMAGE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.ubuntu_version }}"
+        echo "Tagging image as: $IMAGE_TAG"
+        docker tag test-tf-vtk:${{ matrix.ubuntu_version }} "$IMAGE_TAG"
+        echo "Pushing image: $IMAGE_TAG"
+        docker push "$IMAGE_TAG"
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu_version: ["22.04", "24.04", latest]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Pull Docker image
+      run: |
+        IMAGE_TAG="${{ env.REGISTRY }}/${{ github.repository }}:${{ matrix.ubuntu_version }}"
+        echo "Pulling image: $IMAGE_TAG"
+        docker pull "$IMAGE_TAG"
+        echo "Tagging for local use"
+        docker tag "$IMAGE_TAG" test-tf-vtk:${{ matrix.ubuntu_version }}
 
     - name: Test Docker image - Run TensorFlow VTK test
       run: |
@@ -86,7 +129,3 @@ jobs:
         name: container-logs-ubuntu-${{ matrix.ubuntu_version }}
         path: container_output_${{ matrix.ubuntu_version }}.log
         retention-days: 90
-
-    - name: Push Docker image
-      if: github.event_name != 'pull_request'
-      run: make push UBUNTU_VERSION=${{ matrix.ubuntu_version }}
