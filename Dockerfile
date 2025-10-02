@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.source="https://github.com/Oblynx/test-vtk-tf"
 RUN apt-get update && apt-get -y install \
     python3.$( [ "${UBUNTU_VERSION}" = "22.04" ] && echo "11" || echo "12" ) python3-pip vim tar \
     libgl1 libglu1-mesa libx11-6 libxext6 libxrender1
-RUN pip install uv $( [ "${UBUNTU_VERSION}" = "24.04" ] && echo "--break-system-packages" || echo "" )
+RUN pip install uv $( [ "${UBUNTU_VERSION}" != "22.04" ] && echo "--break-system-packages" || echo "" )
 
 WORKDIR /
 COPY tf-vtk-segfault-repro-uv-project.tgz /
