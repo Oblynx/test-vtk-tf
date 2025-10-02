@@ -7,15 +7,18 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# Workflow-level permissions (fallback)
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
 env:
   REGISTRY: ghcr.io
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     strategy:
       fail-fast: false
@@ -46,6 +49,21 @@ jobs:
         # Use GitHub Actions environment for proper registry path
         REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
         IMAGE_TAG="${{ env.REGISTRY }}/${REPO_LOWER}:${{ matrix.ubuntu_version }}"
+
+        echo "=== Debug Information ==="
+        echo "Repository: ${{ github.repository }}"
+        echo "Repository (lowercase): ${REPO_LOWER}"
+        echo "Actor: ${{ github.actor }}"
+        echo "Registry: ${{ env.REGISTRY }}"
+        echo "Image tag: $IMAGE_TAG"
+        echo "Event: ${{ github.event_name }}"
+        echo ""
+
+        echo "=== Docker Login Status ==="
+        docker system info | grep -A5 "Registry Mirrors" || true
+        echo ""
+
+        echo "=== Tagging and Pushing ==="
         echo "Tagging image as: $IMAGE_TAG"
         docker tag test-tf-vtk:${{ matrix.ubuntu_version }} "$IMAGE_TAG"
         echo "Pushing image: $IMAGE_TAG"
@@ -53,9 +71,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
     needs: build
 
     strategy:
