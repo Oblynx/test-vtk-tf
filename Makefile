@@ -1,11 +1,10 @@
-build-2204:
-	docker build --network=host --platform=linux/amd64 \
-		--build-arg UBUNTU_VERSION=22.04 -t test-tf-vtk:22.04 .
+UBUNTU_VERSION ?= 22.04
 
-build-2404:
+build:
 	docker build --network=host --platform=linux/amd64 \
-		--build-arg UBUNTU_VERSION=24.04 -t test-tf-vtk:24.04 .
+		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		-t test-tf-vtk:$(UBUNTU_VERSION) .
 
-build-latest:
-	docker build --network=host --platform=linux/amd64 \
-		--build-arg UBUNTU_VERSION=latest -t test-tf-vtk:latest .
+push: build
+	docker tag test-tf-vtk:$(UBUNTU_VERSION) ghcr.io/oblynx/test-vtk-tf:$(UBUNTU_VERSION)
+	docker push ghcr.io/oblynx/test-vtk-tf:$(UBUNTU_VERSION)
